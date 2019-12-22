@@ -46,6 +46,13 @@ bool nucl19A(std::string target) {
 	return target[18] == 'A';
 }
 
+// nucl2021AorT(next) returns true if "next" (which is either the
+// 20th or the 21st nucleotide) is either A or T,
+// and false otherwise.
+bool nucl2021AorT(char next) {
+	return next == 'A' || next == 'T';
+}
+
 // rnaIter(saRNA, targetSize) iterates over the saRNA string,
 // creating target substrings of size == targetSize. Each
 // target rna is analyzed using various criteria of different 
@@ -53,10 +60,21 @@ bool nucl19A(std::string target) {
 void rnaIter(std::string saRNA, unsigned int targetSize) {
 	for (unsigned int i = 0; targetSize < saRNA.size()-i; ++i) {
 		std::string target = saRNA.substr(i, targetSize);
-
-		if (gcContent(target) && consecutive(target) && nucl1GorC(target) && nucl2GorC(target) && nucl18AorT(target) && nucl19A(target)) {
-			std::cout << target << '\n';
+		
+		if (!gcContent(target)) continue;
+		if (!consecutive(target)) continue;
+		if (!nucl1GorC(target)) continue;
+		if (!nucl2GorC(target)) continue;
+		if (!nucl18AorT(target)) continue;
+		if (!nucl19A(target)) continue;
+		if (saRNA.size()-i >= targetSize+1) {
+			if (!nucl2021AorT(saRNA[i+targetSize+1])) continue;
 		}
+		if (saRNA.size()-i >= targetSize+2) {
+			if (!nucl2021AorT(saRNA[i+targetSize+2])) continue;
+		}
+
+		std::cout << target << '\n';
 	}
 }
 
@@ -67,18 +85,19 @@ void usage(char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-	std::ifstream in( argv[1] );
-	std::string saRNA;
-	
-	switch (argc) {
+	switch ( argc ) {
 		case 2:
-			for ( ;; ) {
-				in >> saRNA;
-				if ( in.fail() ) break;
-			}
 			break;
 		default:
 			usage(argv);
+	}
+
+	std::ifstream in( argv[1] );
+	std::string saRNA;
+
+	for ( ;; ) {
+		in >> saRNA;
+		if ( in.fail() ) break;
 	}
 
 	rnaIter(saRNA, 19);
