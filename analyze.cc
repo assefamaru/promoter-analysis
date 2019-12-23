@@ -34,21 +34,21 @@ bool isNucleotideXY(std::string target, int index, char X, char Y) {
 // target rna is analyzed using various criteria of different 
 // priority, in order to filter ideal targets in the saRNA.
 void rnaIter(std::string saRNA, unsigned int targetSize) {
-	for (unsigned int i = 0; targetSize < saRNA.size()-i; ++i) {
+	for (unsigned int i = 0; targetSize <= saRNA.size()-i; ++i) {
 		std::string target = saRNA.substr(i, targetSize);
 		
 		if (!gcContent(target)) continue;
 		if (!consecutive(target)) continue;
 		if (!isNucleotideXY(target, 0, 'G', 'C')) continue;
 		if (!isNucleotideXY(target, 1, 'G', 'C')) continue;
-		if (!isNucleotideXY(target, 17, 'A', 'T')) continue;
-		if (!isNucleotideXY(target, 18, 'A', 'A')) continue;
+		if (!isNucleotideXY(target, targetSize-2, 'A', 'T')) continue;
+		if (!isNucleotideXY(target, targetSize-1, 'A', 'A')) continue;
 
 		if (saRNA.size()-i >= targetSize+2) {
-			if (!isNucleotideXY(saRNA, i+targetSize+2, 'A', 'T')) continue;
 			if (!isNucleotideXY(saRNA, i+targetSize+1, 'A', 'T')) continue;
-		} else if (saRNA.size()-i >= targetSize+1) {
-			if (!isNucleotideXY(saRNA, i+targetSize+1, 'A', 'T')) continue;
+			if (!isNucleotideXY(saRNA, i+targetSize, 'A', 'T')) continue;
+		} else if (saRNA.size()-i == targetSize+1) {
+			if (!isNucleotideXY(saRNA, i+targetSize, 'A', 'T')) continue;
 		}
 
 		std::cout << target << '\n';
