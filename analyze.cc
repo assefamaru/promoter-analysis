@@ -2,6 +2,7 @@
 #include <string>
 #include <fstream>
 #include <algorithm>
+#include <vector>
 
 // gcContent(target) returns true if the target GC Content
 // is between 40-60%, and false otherwise.
@@ -34,30 +35,53 @@ bool isNucleotideXY(std::string target, int index, char X, char Y) {
 // target rna is analyzed using various criteria of different 
 // priority, in order to filter ideal targets in the saRNA.
 void rnaIter(std::string saRNA, unsigned int targetSize) {
+	struct target {
+		int rank;
+		std::string sequence;
+
+		bool operator>(const target &a) const {
+			return rank > a.rank;
+		}
+	};
+
+	std::vector<target> targets;
+	
+	int j = 0;
 	for (unsigned int i = 0; targetSize <= saRNA.size()-i; ++i) {
-		std::string target = saRNA.substr(i, targetSize);
+		std::string current = saRNA.substr(i, targetSize);
+
+		if (!gcContent(current)) continue;
+		if (!consecutive(current)) continue;
 		
-		if (!gcContent(target)) continue;
-		if (!consecutive(target)) continue;
-		if (!isNucleotideXY(target, 0, 'G', 'C')) continue;
-		if (!isNucleotideXY(target, 1, 'G', 'C')) continue;
-		if (!isNucleotideXY(target, targetSize-2, 'A', 'T')) continue;
-		if (!isNucleotideXY(target, targetSize-1, 'A', 'A')) continue;
+		targets.push_back(target());
+		targets[j].rank = 0;
+		targets[j].sequence = current;
+
+		if (isNucleotideXY(current, 0, 'G', 'C')) ++targets[j].rank;
+		if (isNucleotideXY(current, 1, 'G', 'C')) ++targets[j].rank;
+		if (isNucleotideXY(current, targetSize-2, 'A', 'T')) ++targets[j].rank;
+		if (isNucleotideXY(current, targetSize-1, 'A', 'A')) ++targets[j].rank;
 
 		if (saRNA.size()-i >= targetSize+2) {
-			if (!isNucleotideXY(saRNA, i+targetSize+1, 'A', 'T')) continue;
-			if (!isNucleotideXY(saRNA, i+targetSize, 'A', 'T')) continue;
+			if (isNucleotideXY(saRNA, i+targetSize+1, 'A', 'T')) ++targets[j].rank;
+			if (isNucleotideXY(saRNA, i+targetSize, 'A', 'T')) ++targets[j].rank;
 		} else if (saRNA.size()-i == targetSize+1) {
-			if (!isNucleotideXY(saRNA, i+targetSize, 'A', 'T')) continue;
+			if (isNucleotideXY(saRNA, i+targetSize, 'A', 'T')) ++targets[j].rank;
 		}
 
-		std::cout << target << '\n';
+		++j;
+	}
+
+	std::sort(targets.begin(), targets.end(), std::greater<target>());
+	
+	for (target x : targets) {
+		std::cout << x.sequence << '\n';
 	}
 }
 
-// usage(argv[]) displays usage error message and terminates program.
-void usage(char *argv[]) {
-	std::cerr << "Usage: " << argv[0] << " [ input-file ]" << std::endl;
+// error(message) displays error message and terminates program.
+void error(std::string message) {
+	std::cerr << message << std::endl;
 	std::exit(EXIT_FAILURE);
 }
 
@@ -66,7 +90,8 @@ int main(int argc, char *argv[]) {
 		case 2:
 			break;
 		default:
-			usage(argv);
+			std::string name = argv[0];
+			error("Usage: " + name + " [ input-file ]");
 	}
 
 	std::ifstream in( argv[1] );
@@ -77,5 +102,9 @@ int main(int argc, char *argv[]) {
 		if ( in.fail() ) break;
 	}
 
-	rnaIter(saRNA, 19);
+	if (saRNA.size() < 19) {
+		error("saRNA must contain at least 19 nucleotides!");
+	} else {
+		rnaIter(saRNA, 19);
+	}
 }
