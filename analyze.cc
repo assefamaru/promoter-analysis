@@ -3,6 +3,7 @@
 #include <fstream>
 #include <algorithm>
 #include <vector>
+#include <unordered_map>
 
 // gcContent(target) returns true if the target GC Content
 // is between 40-60%, and false otherwise.
@@ -15,12 +16,86 @@ bool gcContent(std::string target) {
 }
 
 // consecutive(target) returns true if the target contains
-// (<= 5) consecutive nucleotides, and false otherwise.
+// (<= 3) consecutive nucleotides, and false otherwise.
 bool consecutive(std::string target) {
-	return target.find("AAAAAA") == std::string::npos &&
-		target.find("TTTTTT") == std::string::npos &&
-		target.find("GGGGGG") == std::string::npos &&
-		target.find("CCCCCC") == std::string::npos;
+	return target.find("AAAA") == std::string::npos &&
+		target.find("TTTT") == std::string::npos &&
+		target.find("GGGG") == std::string::npos &&
+		target.find("CCCC") == std::string::npos;
+}
+
+// triRepeats(target) returns the number of times a target contains triple 
+// consecutive nucleotides.
+int triRepeats(std::string target) {
+	int count = 0;
+
+	std::string::size_type pos = 0;
+	std::string sub = "AAA";
+	while ((pos = target.find(sub, pos)) != std::string::npos) {
+		++count;
+		pos += sub.size();
+	}
+
+	pos = 0;
+	sub = "TTT";
+	while ((pos = target.find(sub, pos)) != std::string::npos) {
+		++count;
+		pos += sub.size();
+	}
+
+	pos = 0;
+	sub = "GGG";
+	while ((pos = target.find(sub, pos)) != std::string::npos) {
+		++count;
+		pos += sub.size();
+	}
+
+	pos = 0;
+	sub = "CCC";
+	while ((pos = target.find(sub, pos)) != std::string::npos) {
+		++count;
+		pos += sub.size();
+	}
+
+	return count;
+}
+
+// deltaG(seq, len) returns the delta G calculated using the nearest-neighbor method.
+// Table and method can be found at: 
+// https://en.wikipedia.org/wiki/Nucleic_acid_thermodynamics#Nearest-neighbor_method
+double deltaG(std::string seq, int len) {
+	double deltaGTotal = 0.0;
+
+	std::unordered_map<std::string, double> umap;
+
+	umap["AA"] = -4.26;
+	umap["TT"] = -4.26;
+	umap["AT"] = -3.67;
+	umap["TA"] = -2.50;
+	umap["CA"] = -6.12;
+	umap["TG"] = -6.12;
+	umap["GT"] = -6.09;
+	umap["AC"] = -6.09;
+	umap["AG"] = -5.40;
+	umap["CT"] = -5.40;
+	umap["GA"] = -5.51;
+	umap["TC"] = -5.51;
+	umap["CG"] = -9.07;
+	umap["GC"] = -9.36;
+	umap["GG"] = -7.66;
+	umap["CC"] = -7.66;
+	umap["A"] = 4.31;
+	umap["T"] = 4.31;
+	umap["G"] = 4.05;
+	umap["C"] = 4.05;
+
+	deltaGTotal += umap[seq.substr(0, 1)];
+	for (int i = 0; i < len-1; ++i) {
+		deltaGTotal += umap[seq.substr(i, 2)];
+	}
+	deltaGTotal += umap[seq.substr(len-1, 1)];
+
+	return deltaGTotal;
 }
 
 // isNucleotideXY(target, index, X, Y) returns true if the target saRNA
@@ -32,12 +107,13 @@ bool isNucleotideXY(std::string target, int index, char X, char Y) {
 
 // rnaIter(saRNA, targetSize) iterates over the saRNA string,
 // creating target substrings of size == targetSize. Each
-// target rna is analyzed using various criteria of different 
+// target rna is analyzed using various criteria of different
 // priority, in order to filter ideal targets in the saRNA.
 void rnaIter(std::string saRNA, unsigned int targetSize) {
 	struct target {
 		int rank;
 		std::string sequence;
+		std::string outer;
 
 		bool operator>(const target &a) const {
 			return rank > a.rank;
@@ -45,37 +121,45 @@ void rnaIter(std::string saRNA, unsigned int targetSize) {
 	};
 
 	std::vector<target> targets;
-	
+
 	int j = 0;
 	for (unsigned int i = 0; targetSize <= saRNA.size()-i; ++i) {
 		std::string current = saRNA.substr(i, targetSize);
 
 		if (!gcContent(current)) continue;
 		if (!consecutive(current)) continue;
-		
+		if (deltaG(current.substr(0, 4), 4) <= deltaG(current.substr(14, 4), 4)) continue;
+
 		targets.push_back(target());
 		targets[j].rank = 0;
 		targets[j].sequence = current;
+		targets[j].outer = "";
 
-		if (isNucleotideXY(current, 0, 'G', 'C')) ++targets[j].rank;
-		if (isNucleotideXY(current, 1, 'G', 'C')) ++targets[j].rank;
-		if (isNucleotideXY(current, targetSize-2, 'A', 'T')) ++targets[j].rank;
-		if (isNucleotideXY(current, targetSize-1, 'A', 'A')) ++targets[j].rank;
+		if (isNucleotideXY(current, 0, 'G', 'C')) targets[j].rank += 10;
+		if (isNucleotideXY(current, 1, 'G', 'C')) targets[j].rank += 10;
+		if (isNucleotideXY(current, targetSize-2, 'A', 'T')) targets[j].rank += 10;
+		if (isNucleotideXY(current, targetSize-1, 'A', 'A')) targets[j].rank += 10;
+		if (isNucleotideXY(current, targetSize-1, 'T', 'T')) targets[j].rank += 9;
+		targets[j].rank += (triRepeats(current) * -10);
 
-		if (saRNA.size()-i >= targetSize+2) {
-			if (isNucleotideXY(saRNA, i+targetSize+1, 'A', 'T')) ++targets[j].rank;
-			if (isNucleotideXY(saRNA, i+targetSize, 'A', 'T')) ++targets[j].rank;
-		} else if (saRNA.size()-i == targetSize+1) {
-			if (isNucleotideXY(saRNA, i+targetSize, 'A', 'T')) ++targets[j].rank;
+		for (int k = 4; k > 0; --k) {
+			if (saRNA.size()-i >= targetSize+k) {
+				if (targets[j].outer == "") {
+					targets[j].outer = saRNA.substr(i+targetSize, k);
+				}
+				if (isNucleotideXY(saRNA, i+targetSize+(k-1), 'A', 'T')) {
+					targets[j].rank += (4-(k-1));
+				}
+			}
 		}
 
 		++j;
 	}
 
 	std::sort(targets.begin(), targets.end(), std::greater<target>());
-	
+
 	for (target x : targets) {
-		std::cout << x.sequence << '\n';
+		std::cout << x.sequence << "   " << x.outer << "   " << x.rank << '\n';
 	}
 }
 
