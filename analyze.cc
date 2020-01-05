@@ -106,9 +106,25 @@ bool isNucleotideXY(std::string target, int index, char X, char Y) {
 }
 
 // rnaIter(saRNA, targetSize) iterates over the saRNA string,
-// creating target substrings of size == targetSize. Each
-// target rna is analyzed using various criteria of different
-// priority, in order to filter ideal targets in the saRNA.
+// creating target substrings of size == targetSize.
+// Each target saRNA is analyzed using various criteria.
+// The criteria are as follows:
+// * If target's GC Content is not between 40%-60%, it's filtered out.
+// * If target contains > 3 consecutive nucleotides, it's filtered out.
+// * If the ΔG (delta G) of target's left end is >= right end's, it's filtered out.
+// - If 1st nucleotide of target is 'G' or 'C', its rank is increased by 10.
+// - If 2nd nucleotide of target is 'G' or 'C', its rank is increased by 10.
+// - If 18th nucleotide of target is 'A' or 'T', its rank is increased by 10.
+// - If 19th nucleotide of target is 'A', its rank is increased by 10.
+// - If 19th nucleotide of target is 'T', its rank is increased by 9.
+// - If target contains tri-repeats (3 consecutive nucleotides), then its
+//   rank is reduced as: rank = rank - ((# of tri-repeats) * 10)
+// - If 20th nucleotide is 'A' or 'T', target's rank is increased by 4.
+// - If 21st nucleotide is 'A' or 'T', target's rank is increased by 3.
+// - If 22nd nucleotide is 'A' or 'T', target's rank is increased by 2.
+// - If 23rd nucleotide is 'A' or 'T', target's rank is increased by 1.
+// After filtering out and ranking 19nt targets, each target is printed to stdout,
+// along with the 20-23 nucleotides, and their overall rank in descending order. 
 void rnaIter(std::string saRNA, unsigned int targetSize) {
 	struct target {
 		int rank;
@@ -128,7 +144,7 @@ void rnaIter(std::string saRNA, unsigned int targetSize) {
 
 		if (!gcContent(current)) continue;
 		if (!consecutive(current)) continue;
-		if (deltaG(current.substr(0, 4), 4) <= deltaG(current.substr(14, 4), 4)) continue;
+		if (deltaG(current.substr(0, 4), 4) >= deltaG(current.substr(14, 4), 4)) continue;
 
 		targets.push_back(target());
 		targets[j].rank = 0;
@@ -140,7 +156,7 @@ void rnaIter(std::string saRNA, unsigned int targetSize) {
 		if (isNucleotideXY(current, targetSize-2, 'A', 'T')) targets[j].rank += 10;
 		if (isNucleotideXY(current, targetSize-1, 'A', 'A')) targets[j].rank += 10;
 		if (isNucleotideXY(current, targetSize-1, 'T', 'T')) targets[j].rank += 9;
-		targets[j].rank += (triRepeats(current) * -10);
+		targets[j].rank -= (triRepeats(current) * 10);
 
 		for (int k = 4; k > 0; --k) {
 			if (saRNA.size()-i >= targetSize+k) {
@@ -152,6 +168,8 @@ void rnaIter(std::string saRNA, unsigned int targetSize) {
 				}
 			}
 		}
+
+		targets[j].outer.resize (4, '-');
 
 		++j;
 	}
