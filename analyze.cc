@@ -24,8 +24,8 @@ bool consecutive(std::string target) {
 		target.find("CCCC") == std::string::npos;
 }
 
-// triRepeats(target) returns the number of times a target contains triple 
-// consecutive nucleotides.
+// triRepeats(target) returns the number of tri-repeats
+// (or 3 consecutive nucleotides) in the target.
 int triRepeats(std::string target) {
 	int count = 0;
 
